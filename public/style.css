@@ -1,0 +1,463 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: clamp(10px, 4vw, 20px); /* Scale padding theo viewport */
+    color: #333;
+    touch-action: manipulation; /* Tối ưu touch trên mobile */
+}
+
+.container { 
+    max-width: 1200px; 
+    margin: 0 auto; 
+}
+
+.header {
+    text-align: center;
+    color: white;
+    margin-bottom: clamp(20px, 5vh, 30px); /* Dynamic margin */
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.header h1 { 
+    font-size: clamp(1.8em, 5vw, 2.5em); /* Scale font */
+    margin-bottom: 10px; 
+}
+
+.header p { 
+    font-size: clamp(0.9em, 3vw, 1.1em); 
+    opacity: 0.9; 
+}
+
+.main-grid { 
+    display: grid; 
+    gap: clamp(10px, 2vw, 20px); 
+}
+
+.auth-section, .chat-section, .video-section, .game-section {
+    background: white;
+    border-radius: 16px;
+    padding: clamp(16px, 4vw, 24px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.auth-section.full-width {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.auth-section:hover, .chat-section:hover, .video-section:hover, .game-section:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+}
+
+.auth-section h2, .chat-section h2, .video-section h2, .game-section h2 {
+    color: #667eea;
+    margin-bottom: 16px;
+    font-weight: 500;
+    font-size: clamp(1.2em, 4vw, 1.5em);
+}
+
+.auth-form { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 12px; 
+}
+
+#username, #password, #roomInput, #messageInput, #fileInput {
+    padding: clamp(10px, 3vw, 12px) clamp(12px, 4vw, 16px);
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: clamp(14px, 4vw, 16px);
+    transition: border-color 0.3s ease;
+    min-height: 44px; /* Tối ưu touch */
+}
+
+#username:focus, #password:focus, #roomInput:focus, #messageInput:focus, #fileInput:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.button-group, .room-controls, .message-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    flex-wrap: wrap; /* Wrap nếu màn hình hẹp */
+}
+
+button {
+    padding: clamp(10px, 2.5vw, 12px) clamp(16px, 4vw, 20px);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: clamp(12px, 3vw, 14px);
+    font-weight: 500;
+    transition: all 0.3s ease;
+    flex: 1;
+    min-height: 44px; /* Tối ưu touch */
+    min-width: 80px; /* Tránh button quá nhỏ */
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+button:active { 
+    transform: translateY(0); 
+}
+
+.call-button {
+    width: 100%;
+    padding: clamp(12px, 3vw, 16px);
+    font-size: clamp(14px, 4vw, 16px);
+    margin-top: 16px;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+}
+
+.call-button:hover { 
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4); 
+}
+
+#chatBox {
+    height: clamp(250px, 40vh, 400px); /* Dynamic height theo viewport */
+    overflow-y: auto;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 16px 0;
+    background: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.message-bubble {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    border-radius: 12px;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    animation: fadeIn 0.3s ease;
+    max-width: 80%;
+    word-break: break-word;
+}
+
+.message-bubble.new-message { 
+    animation: slideIn 0.4s ease; 
+}
+
+@keyframes fadeIn { 
+    from { opacity: 0; } 
+    to { opacity: 1; } 
+}
+
+@keyframes slideIn { 
+    from { opacity: 0; transform: translateX(20px); } 
+    to { opacity: 1; transform: translateX(0); } 
+}
+
+.timestamp { 
+    font-size: 0.8em; 
+    color: #888; 
+    margin-bottom: 4px; 
+}
+
+.message-text { 
+    word-break: break-word; 
+}
+
+.file-img { 
+    max-width: 150px; 
+    border-radius: 8px; 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+}
+
+.file-link { 
+    color: #667eea; 
+    text-decoration: none; 
+}
+
+.video-container { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 16px; 
+    margin-bottom: 16px; 
+    position: relative; /* Cho overlay local video trên mobile */
+}
+
+.video-local, .video-remote {
+    width: 100%;
+    height: clamp(150px, 25vh, 200px);
+    border-radius: 12px;
+    border: 2px solid #e0e0e0;
+    object-fit: cover;
+    background: #000;
+}
+
+.content-grid { 
+    display: grid; 
+    grid-template-columns: 2fr 1fr; 
+    gap: 20px; 
+}
+
+.room-controls, .message-controls { 
+    display: flex; 
+    gap: 10px; 
+    align-items: center; 
+}
+
+#fileInput { 
+    flex: none; 
+    padding: 8px; 
+}
+
+.toggle-controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.toggle-btn {
+    width: clamp(40px, 10vw, 50px);
+    height: clamp(40px, 10vw, 50px);
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: clamp(16px, 5vw, 20px);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    transition: all 0.3s ease;
+    min-height: 44px; /* Touch-friendly */
+    min-width: 44px;
+}
+
+.toggle-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.switch-link {
+    text-align: center;
+    margin-top: 16px;
+    color: #666;
+}
+
+.switch-link a {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.switch-link a:hover {
+    text-decoration: underline;
+}
+
+/* Thêm style cho nút rời phòng và span */
+#leaveRoomBtn {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    flex: none;
+    min-width: 100px;
+}
+
+#leaveRoomBtn:hover {
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+}
+
+#currentRoomSpan {
+    flex: none;
+    padding: 8px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 4px;
+}
+
+/* Style cho Game RPS */
+.game-section {
+    background: white;
+    border-radius: 16px;
+    padding: clamp(16px, 4vw, 24px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.game-section:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+}
+
+.game-section h2 {
+    color: #667eea;
+    margin-bottom: 16px;
+    font-weight: 500;
+    font-size: clamp(1.2em, 4vw, 1.5em);
+    text-align: center;
+}
+
+.rps-choices {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.rps-choice-btn {
+    width: clamp(60px, 15vw, 80px);
+    height: clamp(60px, 15vw, 80px);
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: clamp(24px, 8vw, 32px);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 44px;
+    min-width: 44px;
+}
+
+.rps-choice-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.rps-choice-btn:active {
+    transform: scale(0.95);
+}
+
+.rps-result {
+    animation: fadeIn 0.5s ease;
+}
+
+.rps-result div {
+    font-size: 1.2em;
+    margin: 5px 0;
+}
+
+#incomingCallControls {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+#incomingCallControls button {
+    flex: 0 1 auto;
+    min-width: 100px;
+}
+
+/* Responsive Media Queries */
+
+/* Mobile Portrait (≤480px) */
+@media (max-width: 480px) {
+    body { 
+        padding: 10px; 
+    }
+    .header h1 { 
+        font-size: 1.8em; 
+    }
+    .main-grid, .content-grid { 
+        grid-template-columns: 1fr; 
+    }
+    .video-container { 
+        grid-template-columns: 1fr; 
+        position: relative;
+    }
+    .video-local {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 80px !important;
+        height: 120px !important;
+        z-index: 10; /* Overlay nhỏ góc phải */
+    }
+    .video-remote {
+        height: clamp(200px, 40vh, 250px); /* Remote lớn hơn */
+    }
+    .button-group, .room-controls, .message-controls { 
+        flex-direction: column; 
+    }
+    button { 
+        width: 100%; 
+    }
+    .toggle-controls { 
+        justify-content: flex-start; 
+        gap: 15px; /* Tăng khoảng cách touch */
+    }
+    #chatBox { 
+        height: 30vh; /* Giảm để tránh keyboard */
+    }
+    .rps-choices {
+        gap: 15px;
+    }
+    .rps-choice-btn {
+        width: 70px;
+        height: 70px;
+        font-size: 28px;
+    }
+}
+
+/* Mobile Landscape / Small Tablet (481px - 768px) */
+@media (max-width: 768px) and (orientation: landscape) {
+    .content-grid { 
+        grid-template-columns: 1fr; 
+    }
+    .video-container { 
+        grid-template-columns: 1fr 1fr; 
+    }
+    .video-local, .video-remote { 
+        height: 120px; 
+    }
+    #chatBox { 
+        height: 25vh; 
+    }
+}
+
+/* Tablet Portrait (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .content-grid { 
+        grid-template-columns: 1.5fr 1fr; /* Tỷ lệ chat:video tốt hơn */
+    }
+    .video-local, .video-remote { 
+        height: 180px; 
+    }
+}
+
+/* Desktop Large (>1024px) - Hỗ trợ 3 cột: Chat | Video | Game */
+@media (min-width: 1025px) {
+    .container {
+        padding: 0 40px;
+    }
+    .header {
+        margin-bottom: 40px;
+    }
+    .content-grid {
+        grid-template-columns: 1.5fr 1fr 1fr; /* Chat | Video | Game */
+    }
+}
+
+/* Landscape chung (tránh vấn đề xoay màn hình) */
+@media (orientation: landscape) and (max-height: 500px) {
+    #chatBox {
+        height: 20vh; /* Giảm chat height trên màn hình thấp */
+    }
+    .video-remote {
+        height: 100vh; /* Full height cho video */
+        max-height: 400px;
+    }
+}
