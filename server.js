@@ -3,12 +3,14 @@ const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 const path = require('path');
-const mysql = require('mysql2');
+const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const os = require('os');
-const SECRET_KEY = process.env.JWT_SECRET || 'your_secret_key'; // Sử dụng env cho an toàn
+
+// Bí mật JWT (sử dụng env, fallback nếu không có)
+const SECRET_KEY = process.env.JWT_SECRET || 'your_fallback_secret_key_change_me';
 
 // Thiết lập Multer với filter (chỉ image, max 5MB)
 const storage = multer.diskStorage({
@@ -27,23 +29,17 @@ const upload = multer({
     }
 });
 
-// Thiết lập kết nối MySQL Pool
-const db = mysql.createPool({
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'chat_app',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
+// Kết nối DB Postgres
+const db = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
-
-db.getConnection((err) => {
+db.query('SELECT NOW()', (err, res) => {
     if (err) {
-        console.error('Lỗi kết nối MySQL:', err);
+        console.error('Lỗi kết nối PostgreSQL:', err);
         return;
     }
-    console.log('Đã kết nối với MySQL');
+    console.log('Đã kết nối với PostgreSQL:', res.rows[0].now);
 });
 
 // Middleware JWT
@@ -62,14 +58,42 @@ const authenticateToken = (req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
+
+// Route ping nhẹ cho keep-alive (thêm ngay đây để test)
+app.get('/ping', (req, res) => {
+  console.log('Ping received from IP:', req.ip || 'unknown');  // Log để check console
+  res.status(200).json({ 
+    status: 'alive', 
+    timestamp: new Date().toISOString(),
+    active_rooms: roomPeers.size || 0  // Thêm info từ app của bạn
+  });
+});
+
+
+
+// Route ping nhẹ cho keep-alive (thêm log và info Socket.IO)
+app.get('/ping', (req, res) => {
+    console.log('Ping received from:', req.ip, 'at', new Date().toISOString());
+    res.status(200).json({ 
+        status: 'alive', 
+        timestamp: new Date().toISOString(),
+        activeUsers: io.engine.clientsCount || 0,
+        activeRooms: io.sockets.adapter.rooms.size || 0 
+    });
+});
+
 // Route đăng ký
 app.post('/register', (req, res) => {
     const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Thiếu username hoặc password' });
     bcrypt.hash(password, 10, (err, hash) => {
         if (err) return res.status(500).json({ error: 'Lỗi hash mật khẩu' });
-        db.query('INSERT INTO users (username, password) VALUES (?, ?)', [username, hash], (err) => {
-            if (err) return res.status(500).json({ error: 'Tài khoản đã tồn tại hoặc lỗi khác' });
-            res.json({ message: 'Đăng ký thành công' });
+        db.query('INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id', [username, hash], (err, results) => {
+            if (err) {
+                if (err.code === '23505') return res.status(409).json({ error: 'Tài khoản đã tồn tại' });
+                return res.status(500).json({ error: 'Lỗi tạo tài khoản' });
+            }
+            res.json({ message: 'Đăng ký thành công', userId: results.rows[0].id });
         });
     });
 });
@@ -77,13 +101,14 @@ app.post('/register', (req, res) => {
 // Route đăng nhập
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
-    db.query('SELECT * FROM users WHERE username = ?', [username], (err, results) => {
-        if (err || !results.length) return res.status(401).json({ error: 'Tài khoản không tồn tại' });
-        const user = results[0];
+    if (!username || !password) return res.status(400).json({ error: 'Thiếu username hoặc password' });
+    db.query('SELECT * FROM users WHERE username = $1', [username], (err, results) => {
+        if (err || !results.rows.length) return res.status(401).json({ error: 'Tài khoản không tồn tại' });
+        const user = results.rows[0];
         bcrypt.compare(password, user.password, (err, match) => {
-            if (!match) return res.status(401).json({ error: 'Mật khẩu sai' });
+            if (err || !match) return res.status(401).json({ error: 'Mật khẩu sai' });
             const token = jwt.sign({ id: user.id, username: user.username }, SECRET_KEY, { expiresIn: '1h' });
-            res.json({ token, username });
+            res.json({ token, username: user.username });
         });
     });
 });
@@ -92,18 +117,16 @@ app.post('/login', (req, res) => {
 app.post('/upload', authenticateToken, upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Không có file được tải lên' });
     const filePath = `/uploads/${req.file.filename}`;
-    res.json({ filePath });
+    res.json({ filePath, message: 'Upload thành công' });
 });
 
 // Serve các trang
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-
 app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
-
 app.get('/register', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'register.html'));
 });
@@ -122,18 +145,19 @@ io.on('connection', (socket) => {
             if (room !== socket.id) socket.leave(room);
         });
         socket.join(roomName);
-
         // Khởi tạo map cho room nếu chưa có
         if (!roomPeers.has(roomName)) {
             roomPeers.set(roomName, new Map());
         }
-
-        // Emit lịch sử chat
-        db.query('SELECT content, sender, timestamp, is_file FROM messages WHERE room_id = (SELECT id FROM rooms WHERE name = ?) ORDER BY timestamp', [roomName], (err, results) => {
-            if (err) return console.error('Lỗi lấy tin nhắn:', err);
-            socket.emit('chatHistory', results);
+        // Emit lịch sử chat (sử dụng timestamp từ DB)
+        db.query('SELECT content, sender, timestamp, is_file FROM messages WHERE room_id = (SELECT id FROM rooms WHERE name = $1) ORDER BY timestamp', [roomName], (err, results) => {
+            if (err) {
+                console.error('Lỗi lấy tin nhắn:', err);
+                socket.emit('chatHistory', []);
+                return;
+            }
+            socket.emit('chatHistory', results.rows);
         });
-
         // Emit TOÀN BỘ allPeerIds (client sẽ filter self)
         const roomMap = roomPeers.get(roomName);
         const allPeerIds = Array.from(roomMap.values());
@@ -152,9 +176,10 @@ io.on('connection', (socket) => {
                 io.to(roomName).emit('remotePeers', { roomName, allPeerIds });
                 console.log(`User ${socket.id} left ${roomName}, updated peers:`, allPeerIds);
             }
-            // Nếu room rỗng, có thể xóa map (tùy chọn)
+            // Nếu room rỗng, xóa map
             if (roomMap && roomMap.size === 0) {
                 roomPeers.delete(roomName);
+                if (gameStates.has(roomName)) gameStates.delete(roomName);
             }
         }
     });
@@ -171,7 +196,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Xử lý kết thúc cuộc gọi (broadcast đến room để đồng bộ)
+    // Xử lý kết thúc cuộc gọi (broadcast đến room)
     socket.on('endCall', (roomName) => {
         if (socket.rooms.has(roomName)) {
             io.to(roomName).emit('endCallRemote');
@@ -200,14 +225,17 @@ io.on('connection', (socket) => {
 
     // Xử lý tin nhắn chat
     socket.on('chatMessage', ({ content, sender, roomName, isFile }) => {
-        db.query('SELECT id FROM rooms WHERE name = ?', [roomName], (err, results) => {
-            if (err || !results.length) {
-                db.query('INSERT INTO rooms (name) VALUES (?)', [roomName], (err) => {
-                    if (err) return console.error('Lỗi tạo phòng:', err);
-                    saveMessage(content, sender, roomName, isFile, io, roomName);
+        db.query('SELECT id FROM rooms WHERE name = $1', [roomName], (err, results) => {
+            if (err || !results.rows.length) {
+                db.query('INSERT INTO rooms (name) VALUES ($1) RETURNING id', [roomName], (err, roomResults) => {
+                    if (err) {
+                        console.error('Lỗi tạo phòng:', err);
+                        return;
+                    }
+                    saveMessage(content, sender, roomResults.rows[0].id, isFile, io, roomName);
                 });
             } else {
-                saveMessage(content, sender, roomName, isFile, io, roomName);
+                saveMessage(content, sender, results.rows[0].id, isFile, io, roomName);
             }
         });
     });
@@ -215,12 +243,10 @@ io.on('connection', (socket) => {
     // Xử lý game RPS
     socket.on('playRPS', ({ roomName, choice }) => {
         if (!socket.rooms.has(roomName)) return console.log('Không ở room:', socket.id);
-
         const roomMap = roomPeers.get(roomName);
         if (!roomMap || roomMap.size !== 2) {
             return console.log(`Không đủ 2 người chơi trong ${roomName}: ${roomMap?.size || 0}`);
         }
-
         // Khởi tạo game state nếu chưa có
         if (!gameStates.has(roomName)) {
             gameStates.set(roomName, { choices: new Map(), ready: false });
@@ -228,42 +254,35 @@ io.on('connection', (socket) => {
         const gameState = gameStates.get(roomName);
         const playerPeerId = socket.peerId;
         if (!playerPeerId) return console.log('Không có peerId:', socket.id);
-
         // Lưu lựa chọn (override nếu chọn lại)
         gameState.choices.set(playerPeerId, choice);
         console.log(`Player ${playerPeerId} in ${roomName} chose: ${choice}`);
-
         // Kiểm tra nếu cả hai đã chọn
         const peerIds = Array.from(roomMap.values());
         const allChoicesFilled = peerIds.every(pid => gameState.choices.has(pid));
         if (allChoicesFilled && !gameState.ready) {
             gameState.ready = true;
-
-            // Mapping choices theo peerId (chính xác, không phụ thuộc order)
+            // Mapping choices theo peerId
             const choicesObj = {};
             peerIds.forEach(pid => {
                 choicesObj[pid] = gameState.choices.get(pid);
             });
-
             // Lấy 2 peerIds
             const peerId1 = peerIds[0];
             const peerId2 = peerIds[1];
             const choice1 = choicesObj[peerId1];
             const choice2 = choicesObj[peerId2];
-
             // Tính kết quả
             const result = determineWinner(choice1, choice2, peerId1, peerId2);
             console.log(`RPS result in ${roomName}: choices=${JSON.stringify(choicesObj)}, winner=${result.winner}, winPeerId=${result.winPeerId}`);
-
-            // Broadcast kết quả đến room (mỗi client sẽ filter cho mình)
+            // Broadcast kết quả đến room
             io.to(roomName).emit('rpsResult', {
                 roomName,
                 choices: choicesObj,
-                winner: result.winner,  // 'player1', 'player2', hoặc 'tie'
-                winPeerId: result.winPeerId  // peerId của người thắng (null nếu tie)
+                winner: result.winner, // 'player1', 'player2', hoặc 'tie'
+                winPeerId: result.winPeerId // peerId của người thắng (null nếu tie)
             });
-
-            // Reset state sau 5s để chơi lại
+            // Reset state sau 5s
             setTimeout(() => {
                 gameState.choices.clear();
                 gameState.ready = false;
@@ -284,7 +303,6 @@ io.on('connection', (socket) => {
                 const allPeerIds = Array.from(roomMap.values());
                 io.to(roomName).emit('remotePeers', { roomName, allPeerIds });
                 console.log(`Updated allPeers after disconnect in ${roomName}:`, allPeerIds);
-
                 // Xóa game state nếu room rỗng
                 if (roomMap.size === 0) {
                     roomPeers.delete(roomName);
@@ -297,15 +315,22 @@ io.on('connection', (socket) => {
     });
 });
 
-// Hàm lưu tin nhắn (fix: thêm timestamp)
-function saveMessage(content, sender, roomName, isFile, io, roomNameParam) {
-    db.query('INSERT INTO messages (content, sender, room_id, is_file, timestamp) VALUES (?, ?, (SELECT id FROM rooms WHERE name = ?), ?, NOW())', [content, sender, roomName, isFile || false], (err) => {
-        if (err) return console.error('Lỗi lưu tin nhắn:', err);
-        const timestamp = new Date();
-        io.to(roomNameParam).emit('chatMessage', { content, sender, timestamp, roomName: roomNameParam, isFile: isFile || false });
-        // Notification thay vì alert (emit cho client handle)
-        io.to(roomNameParam).emit('notification', { message: `Tin nhắn mới từ ${sender} trong phòng ${roomNameParam}` });
-    });
+// Hàm lưu tin nhắn (sử dụng timestamp từ DB)
+function saveMessage(content, sender, roomId, isFile, io, roomName) {
+    db.query(
+        'INSERT INTO messages (content, sender, room_id, is_file, timestamp) VALUES ($1, $2, $3, $4, NOW()) RETURNING timestamp',
+        [content, sender, roomId, isFile || false],
+        (err, results) => {
+            if (err) {
+                console.error('Lỗi lưu tin nhắn:', err);
+                return;
+            }
+            const timestamp = results.rows[0].timestamp;  // Lấy từ DB để chính xác
+            io.to(roomName).emit('chatMessage', { content, sender, timestamp, roomName, isFile: isFile || false });
+            // Notification
+            io.to(roomName).emit('notification', { message: `Tin nhắn mới từ ${sender} trong phòng ${roomName}` });
+        }
+    );
 }
 
 // Hàm tính thắng thua RPS
@@ -324,6 +349,11 @@ function determineWinner(choice1, choice2, peerId1, peerId2) {
         return { winner: 'player2', winPeerId: peerId2 };
     }
 }
+
+// Keep-alive loop: Log mỗi 30s để giữ process tỉnh (tránh Replit idle)
+setInterval(() => {
+    console.log(`[Keep-Alive] App running at ${new Date().toISOString()} | Active users: ${io.engine.clientsCount || 0} | Active rooms: ${roomPeers.size}`);
+}, 30000);
 
 // Khởi động server
 const PORT = process.env.PORT || 5000;
