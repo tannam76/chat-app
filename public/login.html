@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng Nhập - Chat & Video Call</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+</head>
+<body class="auth-page">
+    <div class="container">
+        <div class="auth-section full-width">
+            <div class="auth-header">
+                <h1>🎤 Chat & Video Call</h1>
+                <p>Đăng nhập để bắt đầu trò chuyện</p>
+            </div>
+            <h2>🔐 Đăng Nhập</h2>
+            <form class="auth-form" id="loginForm">
+                <input type="text" id="username" placeholder="Tên người dùng" autocomplete="username" required>
+                <input type="password" id="password" placeholder="Mật khẩu" autocomplete="current-password" required>
+                <button type="submit">Đăng Nhập</button>
+            </form>
+            <p class="switch-link">Chưa có tài khoản? <a href="/register">Đăng ký ngay</a></p>
+        </div>
+    </div>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (data.token) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('username', data.username);
+                    alert('Đăng nhập thành công!');
+                    window.location.href = '/';
+                } else {
+                    alert(data.error);
+                }
+            } catch (err) {
+                alert('Lỗi kết nối!');
+            }
+        });
+    </script>
+</body>
+</html>
