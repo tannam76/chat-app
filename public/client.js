@@ -3,7 +3,7 @@ const peer = new Peer();
 let sender = localStorage.getItem('username') || 'Ẩn danh';
 let peerId = null;
 let joinedRoom = null; // Track room client-side
-let isInRoom = false; // Track trạng thái trong room
+let isInRoom = false; // Track trạng thái trong room.
 
 // Video states
 let isCameraOn = true;
