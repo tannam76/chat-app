@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng Ký - Chat & Video Call</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+</head>
+<body class="auth-page">
+    <div class="container">
+        <div class="auth-section full-width">
+            <div class="auth-header">
+                <h1>🎤 Chat & Video Call</h1>
+                <p>Tạo tài khoản mới để tham gia</p>
+            </div>
+            <h2>🔐 Đăng Ký</h2>
+            <form class="auth-form" id="registerForm">
+                <input type="text" id="username" placeholder="Tên người dùng" autocomplete="username" required>
+                <input type="password" id="password" placeholder="Mật khẩu" autocomplete="new-password" required>
+                <button type="submit">Đăng Ký</button>
+            </form>
+            <p class="switch-link">Đã có tài khoản? <a href="/login">Đăng nhập ngay</a></p>
+        </div>
+    </div>
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            try {
+                const res = await fetch('/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (data.message) {
+                    alert('Đăng ký thành công! Vui lòng đăng nhập.');
+                    window.location.href = '/login';
+                } else {
+                    alert(data.error);
+                }
+            } catch (err) {
+                alert('Lỗi kết nối!');
+            }
+        });
+    </script>
+</body>
+</html>
