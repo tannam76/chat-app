@@ -1,4 +1,5 @@
 // Main initialization file
+// update main 
 document.addEventListener('DOMContentLoaded', async () => {
     // Wait for Socket.IO client to be ready
     while (typeof io === 'undefined') {
