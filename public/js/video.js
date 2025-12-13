@@ -1,4 +1,5 @@
 // Xử lý video và gọi
+//update video
 const startLocalStream = async () => {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
