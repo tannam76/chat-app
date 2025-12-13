@@ -10,7 +10,7 @@ const initializeRoutes = (app) => {
     app.post('/login', login);
 
     // ===== Upload Routes =====
-    app.post('/upload', authenticateToken, upload.single('file'), handleUpload);
+    app.post('/upload', authenticateToken, upload.single('file'), handleUpload);ư,4
 
     // ===== Serve Pages =====
     app.get('/', (req, res) => {
