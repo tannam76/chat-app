@@ -1,4 +1,5 @@
 // Quản lý state global
+//update state
 const SocketIOState = {
     socket: io(),
     sender: localStorage.getItem('username') || 'Ẩn danh',
